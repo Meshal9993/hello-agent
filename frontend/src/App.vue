@@ -15,8 +15,10 @@ const firstValue = ref(null)
 const operation = ref(null)
 const waitingForOperand = ref(false)
 const expression = ref('')
+const calculationHistory = ref([])
 const errorMessage = ref('')
 const isCalculating = ref(false)
+let nextHistoryId = 0
 
 function inputDigit(digit) {
   if (isCalculating.value) return
@@ -124,8 +126,20 @@ async function calculateResult() {
       b: secondValue,
     })
 
-    expression.value = `${formatValue(firstValue.value)} ${operationSymbols[selectedOperation]} ${formatValue(secondValue)} =`
-    displayValue.value = formatValue(result)
+    const formattedResult = formatValue(result)
+    const completedExpression = `${formatValue(firstValue.value)} ${operationSymbols[selectedOperation]} ${formatValue(secondValue)} =`
+
+    calculationHistory.value = [
+      ...calculationHistory.value,
+      {
+        id: nextHistoryId,
+        expression: completedExpression,
+        result: formattedResult,
+      },
+    ].slice(-3)
+    nextHistoryId += 1
+    expression.value = ''
+    displayValue.value = formattedResult
     firstValue.value = null
     operation.value = null
     waitingForOperand.value = true
@@ -150,8 +164,15 @@ async function calculateResult() {
         </div>
       </header>
 
-      <section class="display" aria-live="polite" aria-atomic="true">
-        <p class="expression">{{ expression || 'Ready' }}</p>
+      <section class="display" aria-live="polite" aria-atomic="false">
+        <ol v-if="calculationHistory.length" class="history" aria-label="Recent calculations">
+          <li v-for="calculation in calculationHistory" :key="calculation.id" class="history-entry">
+            <span>{{ calculation.expression }}</span>
+            <strong>{{ calculation.result }}</strong>
+          </li>
+        </ol>
+        <p v-else class="history-empty">Ready</p>
+        <p class="expression">{{ expression }}</p>
         <output class="display-value">{{ isCalculating ? '…' : displayValue }}</output>
         <p class="error-message" role="alert">{{ errorMessage }}</p>
       </section>
@@ -314,11 +335,45 @@ button {
 
 .display {
   display: flex;
-  min-height: 10rem;
+  min-height: 15rem;
   padding: 1.5rem 0.25rem 1rem;
   flex-direction: column;
   align-items: flex-end;
   justify-content: flex-end;
+}
+
+.history {
+  display: grid;
+  width: 100%;
+  padding: 0;
+  margin: 0 0 auto;
+  gap: 0.35rem;
+  list-style: none;
+}
+
+.history-entry {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+  color: #9e9ea1;
+  font-size: 0.95rem;
+}
+
+.history-entry strong {
+  overflow: hidden;
+  color: #d6d6d8;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-empty {
+  width: 100%;
+  margin: 0 0 auto;
+  color: #9e9ea1;
+  font-size: 0.95rem;
+  text-align: right;
 }
 
 .expression,
